@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>【アークナイツ】風配信GUI</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            width: 1920px;
+            height: 1080px;
+            font-family: 'Orbitron', monospace;
+            overflow: hidden;
+            background: transparent;
+            color: #ffffff;
+            position: relative;
+        }
+        
+        .gui-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+        }
+        
+        /* 左サイドパネル */
+        .left-panel {
+            position: absolute;
+            left: 20px;
+            top: 20px;
+            width: 280px;
+            height: calc(100% - 40px); 
+            background: linear-gradient(135deg, rgba(26, 26, 26, 0.9) 0%, rgba(44, 44, 44, 0.9) 100%);
+            border: 2px solid #00d4ff;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 212, 255, 0.2);
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .left-panel.collapsed {
+            transform: translateX(-305px);
+        }
+        
+        .panel-toggle {
+            position: absolute;
+            right: -40px;
+            top: 20px;
+            width: 30px;
+            height: 60px;
+            background: linear-gradient(135deg, rgba(26, 26, 26, 0.9) 0%, rgba(44, 44, 44, 0.9) 100%);
+            border: 2px solid #00d4ff;
+            border-left: none;
+            border-radius: 0 10px 10px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .panel-toggle:hover {
+            background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+        }
+        
+        .panel-toggle-icon {
+            color: #00d4ff;
+            font-size: 16px;
+            transition: transform 0.3s ease;
+        }
+        
+        .panel-toggle:hover .panel-toggle-icon {
+            color: #ffffff;
+        }
+        
+        .left-panel.collapsed .panel-toggle-icon {
+            transform: rotate(180deg);
+        }
+        
+        .panel-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #00d4ff;
+            margin-bottom: 20px;
+            text-align: center;
+            border-bottom: 1px solid #00d4ff;
+            padding-bottom: 10px;
+        }
+        
+        .menu-button {
+            width: 100%;
+            height: 50px;
+            background: linear-gradient(135deg, #2c2c2c 0%, #404040 100%);
+            border: 1px solid #00d4ff;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Orbitron', monospace;
+            font-weight: 600;
+        }
+        
+        .menu-button:hover {
+            background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+            box-shadow: 0 4px 15px rgba(0, 212, 255, 0.4);
+        }
+        
+        /* アニメーション */
+        @keyframes slideIn {
+            from { transform: translateX(-100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes fadeInScaleUp {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        
+        .left-panel {
+            animation: slideIn 1s ease-out;
+        }
+        
+        /* モーダル */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s;
+        }
+
+        .modal.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .modal-content {
+            background: linear-gradient(135deg, #1a1a1a 0%, #2c2c2c 100%);
+            border: 2px solid #00d4ff;
+            border-radius: 10px;
+            padding: 30px;
+            max-width: 1200px;
+            max-height: 90vh;
+            width: 90%;
+            overflow-y: auto;
+            position: relative;
+            transform: scale(0.95);
+            opacity: 0;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+
+        .modal.show .modal-content {
+            animation: fadeInScaleUp 0.35s cubic-bezier(0.165, 0.84, 0.44, 1) forwards;
+        }
+        
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 24px;
+            cursor: pointer;
+            color: #00d4ff;
+            z-index: 1001;
+        }
+        
+        .close-btn:hover {
+            color: #00ff88;
+        }
+        
+        /* 汎用ボタン */
+        .page-btn {
+            padding: 8px 16px;
+            background: linear-gradient(135deg, #2c2c2c 0%, #404040 100%);
+            border: 1px solid #00d4ff;
+            border-radius: 20px;
+            color: #ffffff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Orbitron', monospace;
+            font-size: 12px;
+        }
+        
+        .page-btn:hover {
+            background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+        }
+
+        /* お知らせリスト */
+        .news-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            max-height: 500px;
+            overflow-y: auto;
+            margin-top: 20px;
+            padding-right: 10px;
+        }
+        
+        .news-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            background: rgba(0, 212, 255, 0.1);
+            border: 1px solid #00d4ff;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        
+        .news-item:hover {
+            background: rgba(0, 212, 255, 0.2);
+        }
+        
+        .news-thumbnail {
+            width: 80px;
+            height: 45px;
+            /* 背景を削除し、画像がフィットするように調整 */
+            border-radius: 5px;
+            margin-right: 15px;
+            flex-shrink: 0;
+            overflow: hidden; /* 画像がはみ出さないように */
+        }
+        
+        .news-thumbnail img {
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover;
+            border-radius: 4px; /* サムネイル画像にも角丸を適用 */
+        }
+
+        .news-content { flex: 1; }
+        .news-title { font-size: 14px; font-weight: 600; color: #00ff88; margin-bottom: 5px; }
+        .news-date { font-size: 12px; color: #ccc; }
+        
+        /* ギャラリーグリッド */
+        .gallery-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 20px 0; }
+        .gallery-item { aspect-ratio: 16/9; background: linear-gradient(135deg, #2c2c2c 0%, #404040 100%); border: 1px solid #00d4ff; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.3s ease; position: relative; overflow: hidden; padding: 0; } /* padding: 0とoverflow: hiddenを追加 */
+        .gallery-item img { width: 100%; height: 100%; object-fit: cover; } /* 画像をギャラリーアイテムにフィットさせる */
+        .gallery-item:hover { transform: scale(1.03); box-shadow: 0 4px 15px rgba(0, 212, 255, 0.4); }
+        /* .gallery-placeholder { font-size: 48px; color: #00d4ff; } プレースホルダーは削除 */
+        .gallery-credit { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0, 0, 0, 0.8); padding: 5px; font-size: 10px; color: #ccc; text-align: center; }
+        .gallery-pagination { display: flex; justify-content: center; align-items: center; gap: 15px; margin-top: 20px; }
+        .page-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .page-info { color: #00d4ff; font-size: 14px; }
+        
+        /* NEW: プロフィール画面スタイル */
+        .profile-container { display: flex; gap: 30px; align-items: flex-start; }
+        .profile-left { flex: 1; max-width: 400px; }
+        .profile-right { flex: 2; line-height: 1.7; }
+        .profile-kv { 
+            width: 100%; 
+            aspect-ratio: 3/4; 
+            background: linear-gradient(135deg, #2c2c2c 0%, #404040 100%); 
+            border: 2px solid #00d4ff; 
+            border-radius: 10px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 100px; 
+            color: #00d4ff; 
+            margin-bottom: 15px;
+            padding: 0; /* 追加 */
+            overflow: hidden; /* 追加 */
+        }
+        .profile-kv img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; } /* 追加 */
+
+        .profile-thumbnails { display: flex; justify-content: space-between; gap: 10px; }
+        .profile-thumb { 
+            flex: 1; 
+            aspect-ratio: 16/9; 
+            background: linear-gradient(135deg, #2c2c2c 0%, #404040 100%); 
+            border: 1px solid #00d4ff; 
+            border-radius: 5px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 30px; 
+            color: #00d4ff; 
+            cursor: pointer; 
+            transition: all 0.2s ease; 
+            
+            /* 画像表示のために修正 */
+            background-size: cover; 
+            background-position: center;
+        }
+        .profile-thumb:hover { transform: scale(1.05); box-shadow: 0 0 10px rgba(0, 212, 255, 0.5); }
+        
+        .profile-name { font-size: 24px; color: #00ff88; margin-bottom: 15px; border-bottom: 1px solid #00d4ff; padding-bottom: 10px; }
+        .profile-text { margin-bottom: 20px; color: #ccc; }
+        .sns-links { display: flex; flex-direction: column; gap: 15px; }
+        .sns-link { background: rgba(0, 212, 255, 0.1); border: 1px solid #00d4ff; border-radius: 5px; padding: 10px 15px; color: #fff; text-decoration: none; display: block; transition: all 0.2s ease; }
+        .sns-link:hover { background: rgba(0, 212, 255, 0.2); }
+        .sns-link strong { color: #00d4ff; margin-right: 10px; }
+
+        /* スクロールバーカスタマイズ */
+        .news-list::-webkit-scrollbar, .modal-content::-webkit-scrollbar { width: 6px; }
+        .news-list::-webkit-scrollbar-track, .modal-content::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.3); border-radius: 3px; }
+        .news-list::-webkit-scrollbar-thumb, .modal-content::-webkit-scrollbar-thumb { background: #00d4ff; border-radius: 3px; }
+        .news-list::-webkit-scrollbar-thumb:hover, .modal-content::-webkit-scrollbar-thumb:hover { background: #00ff88; }
+        
+        /* 画像ライトボックスのスタイル */
+        .image-lightbox { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.9); z-index: 2000; display: none; justify-content: center; align-items: center; cursor: pointer; opacity: 0; transition: opacity 0.3s ease; }
+        .image-lightbox.show { display: flex; opacity: 1; }
+        .lightbox-content { position: relative; cursor: default; animation: fadeInScaleUp 0.35s cubic-bezier(0.165, 0.84, 0.44, 1) forwards; }
+        .lightbox-image-placeholder { 
+            max-width: 85vw; max-height: 85vh; width: 1280px; aspect-ratio: 16/9; 
+            background: linear-gradient(135deg, #1a1a1a 0%, #2c2c2c 100%); 
+            border: 3px solid #00d4ff; 
+            box-shadow: 0 0 40px rgba(0, 212, 255, 0.5); 
+            border-radius: 10px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 150px; 
+            color: #00d4ff;
+        }
+        .lightbox-image-placeholder img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; } /* 追加 */
+
+        .lightbox-caption { position: absolute; bottom: -40px; right: 0; background: rgba(0, 0, 0, 0.7); color: #fff; padding: 8px 15px; border-radius: 5px; font-size: 16px; line-height: 1.5; text-align: right; border: 1px solid #444; min-width: 250px; }
+        .lightbox-caption .artist-name { font-weight: bold; color: #00ff88; }
+        .news-detail-image { 
+            max-width: min(500px, 60vw); 
+            max-height: min(281px, 35vh); 
+            width: 500px; 
+            height: 281px; 
+            aspect-ratio: 16/9; 
+            background: linear-gradient(135deg, #2c2c2c 0%, #404040 100%); 
+            border: 2px solid #00d4ff; 
+            border-radius: 10px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 72px; 
+            margin: 0 auto 20px; 
+            color: #00d4ff;
+            padding: 0; /* 追加 */
+            overflow: hidden; /* 追加 */
+        }
+        .news-detail-image img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; } /* 追加 */
+    </style>
+</head>
+<body>
+    <div class="gui-overlay">
+        
+        <div class="left-panel" id="leftPanel">
+            <div class="panel-toggle" onclick="togglePanel()">
+                <div class="panel-toggle-icon">◀</div>
+            </div>
+            <div class="panel-title">CONTROL PANEL</div>
+            <button class="menu-button" onclick="openModal('information')">インフォメーション</button>
+            <button class="menu-button" onclick="openModal('schedule')">配信予定</button>
+            <button class="menu-button" onclick="openModal('profile')">プロフィール</button> 
+            <button class="menu-button" onclick="openModal('gallery')">ギャラリー</button>
+            <button class="menu-button" onclick="openModal('guidelines')">配信ガイドライン</button>
+        </div>
+        
+    </div>
+    
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal()">&times;</span>
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
+    <div id="image-lightbox" class="image-lightbox" onclick="closeImageLightbox()">
+        <div class="lightbox-content">
+            <div id="lightbox-image-placeholder" class="lightbox-image-placeholder"></div>
+            <div id="lightbox-caption" class="lightbox-caption"></div>
+        </div>
+    </div>
+    
+    <script>
+        // =========================================================
+        // 🌟 ユーザーが画像を差し替える場所 🌟
+        // ここに画像パスを記述すれば、表示が切り替わります！
+        // =========================================================
+        
+        // データベース（仮想）: お知らせ
+        const newsData = [
+            // thumbnailUrl: お知らせ一覧のサムネイル画像パス
+            // mainImageUrl: お知らせ詳細画面のメイン画像パス
+            { id: 1, title: "新楽曲「星空のメロディ」公開！", date: "2025/09/05", 
+              thumbnailUrl: "img/news_thumb_song.jpg", mainImageUrl: "img/news_main_song.jpg", 
+              content: "待望のオリジナル楽曲「星空のメロディ」を公開しました！夜空をテーマにした幻想的な楽曲です。作詞・作曲ともに初挑戦でしたが、皆様に愛される楽曲になれば嬉しいです。" },
+            { id: 2, title: "月末記念配信のお知らせ", date: "2025/09/03", 
+              thumbnailUrl: "img/news_thumb_party.jpg", mainImageUrl: "img/news_main_party.jpg", 
+              content: "9月30日に月末記念配信を開催します！リクエスト楽曲の演奏や、視聴者の皆様との交流企画を予定しています。特別なゲストも登場予定です。" },
+            { id: 3, title: "配信機材をアップグレード", date: "2025/09/01", 
+              thumbnailUrl: "img/news_thumb_gear.jpg", mainImageUrl: "img/news_main_gear.jpg", 
+              content: "音質向上のため、配信機材をアップグレードしました！より美しい音でお届けできるようになりました。" },
+            { id: 4, title: "ファンアート企画開催中！", date: "2025/08/28", 
+              thumbnailUrl: "img/news_thumb_art.jpg", mainImageUrl: "img/news_main_art.jpg", 
+              content: "ファンアート企画を開催中です！ハッシュタグ「#example_fanart」をつけて投稿してください。素敵な作品は配信で紹介させていただきます。" },
+            { id: 5, title: "夏の特別配信ありがとうございました", date: "2025/08/25", 
+              thumbnailUrl: "img/news_thumb_summer.jpg", mainImageUrl: "img/news_main_summer.jpg", 
+              content: "夏の特別配信にたくさんのご視聴ありがとうございました！いただいたリクエストは今後の配信でも演奏していきます。" },
+            { id: 6, title: "夏の特別配信ありがとうございました", date: "2025/08/25", 
+              thumbnailUrl: "img/news_thumb_summer.jpg", mainImageUrl: "img/news_main_summer.jpg", 
+              content: "夏の特別配信にたくさんのご視聴ありがとうございました！いただいたリクエストは今後の配信でも演奏していきます。" },
+            { id: 7, title: "夏の特別配信ありがとうございました", date: "2025/08/25", 
+              thumbnailUrl: "img/news_thumb_summer.jpg", mainImageUrl: "img/news_main_summer.jpg", 
+              content: "夏の特別配信にたくさんのご視聴ありがとうございました！いただいたリクエストは今後の配信でも演奏していきます。" }
+        ];
+        
+        // データベース（仮想）: ギャラリー
+        const galleryData = [
+            // imageUrl: ギャラリーに表示する画像パス
+            { id: 1, artist: "Artist_Fan", snsAccount: "@artist_fan", platform: "Twitter", imageUrl: "img/fanart_01.jpg" },
+            { id: 2, artist: "Cute_Drawer", snsAccount: "@cute_drawer", platform: "pixiv", imageUrl: "img/fanart_02.jpg" },
+            { id: 3, artist: "Music_Lover", snsAccount: "@music_lover", platform: "Instagram", imageUrl: "img/fanart_03.jpg" },
+            // 必要に応じてデータを追加してください
+        ];
+
+        // データベース（仮想）: プロフィール
+        const profileImages = {
+            main: "https://github.com/haizumi/obs/blob/main/image/noir_test.jpg?raw=true", // プロフィール画面のメイン画像
+            thumb1: "https://github.com/haizumi/obs/blob/main/image/noimage.jpg?raw=true", // サムネイル1
+            thumb2: "https://github.com/haizumi/obs/blob/main/image/noimage.jpg?raw=true", // サムネイル2
+            thumb3: "https://github.com/haizumi/obs/blob/main/image/noimage.jpg?raw=true"  // サムネイル3
+        };
+
+        // =========================================================
+        // ⚠️ 画像表示ロジック ⚠️
+        // ここから下の部分は、画像のファイルパスを変更するだけであれば触る必要はありません
+        // =========================================================
+        
+        let currentGalleryPage = 1;
+        const galleryItemsPerPage = 6;
+        
+        function togglePanel() {
+            document.getElementById('leftPanel').classList.toggle('collapsed');
+        }
+        
+        function showNewsDetail(newsId) {
+            const news = newsData.find(n => n.id === newsId);
+            if (!news) return;
+            
+            const modalBody = document.getElementById('modal-body');
+            modalBody.innerHTML = `
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <div class="news-detail-image">
+                        <img src="${news.mainImageUrl}" alt="${news.title}"> 
+                    </div>
+                    <h2 style="color: #00d4ff; margin-bottom: 10px;">${news.title}</h2>
+                    <div style="color: #ccc; font-size: 14px; margin-bottom: 20px;">${news.date}</div>
+                    <div style="text-align: left; line-height: 1.6; color: #fff; margin-bottom: 30px;">
+                        ${news.content}
+                    </div>
+                    <button class="page-btn" onclick="openModal('information')">← お知らせ一覧に戻る</button>
+                </div>
+            `;
+            // openModal()は呼ばずにコンテンツを入れ替えるだけ
+        }
+        
+        function showGallery() {
+            const totalPages = Math.ceil(galleryData.length / galleryItemsPerPage);
+            const startIndex = (currentGalleryPage - 1) * galleryItemsPerPage;
+            const endIndex = startIndex + galleryItemsPerPage;
+            const currentItems = galleryData.slice(startIndex, endIndex);
+            
+            let galleryHTML = `
+                <h2 style="color: #00d4ff; text-align: center; margin-bottom: 15px;">ファンアートギャラリー</h2>
+                <div class="gallery-grid">`;
+            
+            currentItems.forEach(item => {
+                // 画像を表示するように修正
+                galleryHTML += `
+                    <div class="gallery-item" onclick="showGalleryDetail(${item.id})">
+                        <img src="${item.imageUrl}" alt="ファンアート by ${item.artist}">
+                        <div class="gallery-credit">by ${item.artist}</div>
+                    </div>`;
+            });
+            
+            galleryHTML += `</div>
+                <div class="gallery-pagination">
+                    <button class="page-btn" onclick="changeGalleryPage(-1)" ${currentGalleryPage === 1 ? 'disabled' : ''}>← 前</button>
+                    <span class="page-info">${currentGalleryPage} / ${totalPages}</span>
+                    <button class="page-btn" onclick="changeGalleryPage(1)" ${currentGalleryPage === totalPages ? 'disabled' : ''}>次 →</button>
+                </div>`;
+            return galleryHTML;
+        }
+        
+        function showGalleryDetail(itemId) {
+            const item = galleryData.find(g => g.id === itemId);
+            if (!item) return;
+            
+            const lightbox = document.getElementById('image-lightbox');
+            const placeholder = document.getElementById('lightbox-image-placeholder');
+            const caption = document.getElementById('lightbox-caption');
+
+            // ライトボックスに画像をロード
+            placeholder.innerHTML = `<img src="${item.imageUrl}" alt="拡大ファンアート">`;
+            
+            caption.innerHTML = `
+                <div class="artist-name">Illustrator: ${item.artist}</div> <div>SNS: ${item.snsAccount} (${item.platform})</div>
+            `;
+            caption.style.display = 'block';
+            lightbox.classList.add('show');
+        }
+
+        // プロフィール画像をポップアップ表示（ギャラリー詳細と統合）
+        function showProfileImage(imageUrl) {
+            const lightbox = document.getElementById('image-lightbox');
+            const placeholder = document.getElementById('lightbox-image-placeholder');
+            const caption = document.getElementById('lightbox-caption');
+
+            placeholder.innerHTML = `<img src="${imageUrl}" alt="プロフィール画像拡大">`;
+            caption.style.display = 'none'; // キャプションは非表示
+            lightbox.classList.add('show');
+        }
+
+        function closeImageLightbox() {
+            document.getElementById('image-lightbox').classList.remove('show');
+        }
+
+        function changeGalleryPage(direction) {
+            const totalPages = Math.ceil(galleryData.length / galleryItemsPerPage);
+            currentGalleryPage += direction;
+            if (currentGalleryPage < 1) currentGalleryPage = 1;
+            if (currentGalleryPage > totalPages) currentGalleryPage = totalPages;
+            document.getElementById('modal-body').innerHTML = showGallery();
+        }
+        
+        function openModal(type) {
+            const modal = document.getElementById('modal');
+            const modalBody = document.getElementById('modal-body');
+            let content = '';
+
+            if (type) {
+                switch(type) {
+                    case 'information':
+                        content = `<h2 style="color: #00d4ff; text-align: center; margin-bottom: 20px;">インフォメーション</h2><div class="news-list">`;
+                        newsData.forEach(news => {
+                            // 画像を表示するように修正
+                            content += `
+                                <div class="news-item" onclick="showNewsDetail(${news.id})">
+                                    <div class="news-thumbnail">
+                                        <img src="${news.thumbnailUrl}" alt="${news.title}">
+                                    </div>
+                                    <div class="news-content">
+                                        <div class="news-title">${news.title}</div>
+                                        <div class="news-date">${news.date}</div>
+                                    </div>
+                                </div>`;
+                        });
+                        content += '</div>';
+                        break;
+                    case 'schedule': 
+                        content = `
+                            <h2 style="color: #00d4ff; text-align: center; margin-bottom: 25px;">配信予定</h2>
+                            <div style="margin-bottom: 20px; background: rgba(0,255,136,0.1); padding: 15px; border-radius: 8px;">
+                                <h3 style="color: #00ff88; margin-bottom: 10px;">🗓️ 定期配信</h3>
+                                <p><strong>毎週 火・木・土曜日 21:00 JST START</strong></p>
+                                <p style="color: #ccc; font-size: 14px;">ピアノ弾き語りを中心に、雑談やゲームなど。リクエストも募集中です！</p>
+                            </div>
+                            <div style="background: rgba(0,212,255,0.1); padding: 15px; border-radius: 8px;">
+                                <h3 style="color: #00d4ff; margin-bottom: 10px;">🎉 特別配信</h3>
+                                <p><strong>2025/09/30 (火) 21:00 JST START</strong></p>
+                                <p style="color: #ccc; font-size: 14px;">【記念配信】新オリジナル楽曲お披露目 & スペシャルゲスト登場！</p>
+                            </div>`;
+                        break;
+                    case 'profile': 
+                        content = `
+                            <h2 style="color: #00d4ff; text-align: center; margin-bottom: 25px;">プロフィール</h2>
+                            <div class="profile-container">
+                                <div class="profile-left">
+                                    <div class="profile-kv">
+                                        <img src="${profileImages.main}" alt="プロフィールメイン画像">
+                                    </div>
+                                    <div class="profile-thumbnails">
+                                        <div class="profile-thumb" style="background-image: url('${profileImages.thumb1}');" onclick="showProfileImage('${profileImages.thumb1}')"></div>
+                                        <div class="profile-thumb" style="background-image: url('${profileImages.thumb2}');" onclick="showProfileImage('${profileImages.thumb2}')"></div>
+                                        <div class="profile-thumb" style="background-image: url('${profileImages.thumb3}');" onclick="showProfileImage('${profileImages.thumb3}')"></div>
+                                    </div>
+                                </div>
+                                <div class="profile-right">
+                                    <div class="profile-name">NoiR</div>
+                                    <div class="profile-text">
+                                        2019年5月より発足した架空のアーティストおよびプロジェクトで、現実世界で音楽を発信している。 ボーカルおよび楽曲制作をNoiR（ノワール）が務め、Youtube・bilibiliをメインプラットフォームとして、国内だけでなく海外も視野に入れた活動を行っている。
+                                    </div>
+                                    <div class="sns-links">
+                                        <a href="#" class="sns-link"><strong>X (Twitter)</strong> @No_iR88</a>
+                                        <a href="#" class="sns-link"><strong>YouTube</strong> @GeminiMusicChannel</a>
+                                        <a href="#" class="sns-link"><strong>Official Site</strong> gemini-vtuber.dev</a>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        break;
+                    case 'gallery':
+                        content = showGallery();
+                        break;
+                    case 'guidelines': 
+                        content = `
+                            <h2 style="color: #00d4ff; text-align: center; margin-bottom: 25px;">配信ガイドライン</h2>
+                            <div style="line-height: 1.8;">
+                                <p style="color: #ccc; text-align: center; margin-bottom: 20px;">みんなで楽しい時間を過ごすため、ご協力をお願いします。</p>
+                                <div style="margin-bottom: 15px;">
+                                    <h3 style="color: #00ff88; margin-bottom: 10px;">✅ OK</h3>
+                                    <ul style="list-style: '✔ '; margin-left: 20px; color: #eee;">
+                                        <li>配信内容に関するコメントや質問</li>
+                                        <li>暖かい応援や、他の視聴者さんとの楽しい交流</li>
+                                        <li>楽曲のリクエスト（可能な範囲でお応えします）</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h3 style="color: #ff6b6b; margin-bottom: 10px;">❌ NG</h3>
+                                    <ul style="list-style: '✖ '; margin-left: 20px; color: #eee;">
+                                        <li>個人情報を探るような質問</li>
+                                        <li>他の活動者さんのお名前を出すこと（こちらから話題に出した場合を除く）</li>
+                                        <li>荒らし、スパム、その他不適切な発言</li>
+                                    </ul>
+                                </div>
+                            </div>`;
+                        break;
+                    default:
+                        content = '<p>準備中です</p>';
+                }
+                modalBody.innerHTML = content;
+            }
+            
+            modal.classList.add('show');
+        }
+        
+        function closeModal() {
+            const modal = document.getElementById('modal');
+            modal.classList.remove('show');
+        }
+        
+        document.getElementById('modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>
